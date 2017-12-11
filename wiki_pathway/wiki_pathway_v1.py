@@ -20,6 +20,8 @@ model_name = psplit(os.path.abspath(__file__))[1]
 
 (wiki_pathway_model,wiki_pathway_raw,wiki_pathway_store,wiki_pathway_db,wiki_pathway_map) = buildSubDir('wiki_pathway')
 
+log_path = pjoin(wiki_pathway_model,'wiki_pathway.log')
+
 # main code
 def downloadData(redownload = False):
 
@@ -41,15 +43,13 @@ def downloadData(redownload = False):
 
         process = wiki_parser(today)
 
-        (mt,down_url) = process.getMt()
+        (down_url,mt) = process.getMt()
 
         # download file
         unzipdir = process.wget(down_url,mt,wiki_pathway_raw)
 
-            # create log file
-    log_path = pjoin(wiki_pathway_model,'wiki_pathway.log')
-
-    if not os.path.exists(pjoin(wiki_pathway_model,'wiki_pathway.log')):
+    # create log file
+    if not os.path.exists(log_path):
 
         with open('./wiki_pathway.log','w') as wf:
             json.dump({
@@ -73,19 +73,21 @@ def extractData(filepaths,version):
     process = wiki_parser(version)
 
     for filepath in filepaths:
-    # for filepath in filepaths[:1]:
+
+        # if filepath.count('Hs_EBV_LMP1_signaling_WP262_86888.gpml'):
+
+        #     process.gpml(filepath,storedir)
+
+
         process.gpml(filepath,storedir)
-
-        # if filepath.count('Hs_Corticotropin-releasing_hormone_signaling_pathway_WP2355_94191.gpml'):
-            # print filepath
-
-            # process.gpml(filepath,storedir)
 
     print 'extract an insert completed!'
 
+    return (storedir,version)
+
 def updateData():
 
-    wiki_pathway_log = json.load(open('./wiki_pathway.log'))
+    wiki_pathway_log = json.load(open(log_path))
 
     rawdir = pjoin(wiki_pathway_raw,'pathway_update_{}'.format(today))
 
@@ -93,7 +95,7 @@ def updateData():
 
     process = wiki_parser(today)
 
-    (mt,down_url) = process.getMt()
+    (dowload_url,mt) = process.getMt()
 
     if mt != latest:
 
@@ -105,17 +107,19 @@ def updateData():
 
         wiki_pathway_log['wiki_pathway'].append((mt,today,model_name))
 
-        with open('./wiki_pathway.log','w') as wf:
+        with open(log_path,'w') as wf:
 
             json.dump(wiki_pathway_log,wf,indent=2)
 
         print  '{} \'s new edition is {} '.format('wiki_pathway',mt)
 
+        bakeupCol('wiki_pathway_{}'.format(version),'wiki_pathway')
+
     else:
 
-        print  '{} is the latest !'.format('wiki_pathway')
+        print  '{} {} is the latest !'.format('wiki_pathway',mt)
 
-def selectData(querykey = 'name',value='"EBV LMP1 signaling'):
+def selectData(querykey = 'name',value='EBV LMP1 signaling'):
     '''
     this function is set to select data from mongodb
     args:
@@ -124,7 +128,7 @@ def selectData(querykey = 'name',value='"EBV LMP1 signaling'):
     '''
     conn = MongoClient('127.0.0.1', 27017 )
 
-    db = conn.mygene
+    db = conn.mydb
 
     colnamehead = 'wiki_pathway'
 
@@ -139,7 +143,7 @@ class dbMap(object):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('wiki_pathway_{}'.format(version))
 
@@ -151,35 +155,8 @@ class dbMap(object):
 
         docs =self.col.find({})
 
-        name_des = dict()
-
-        name_cat = dict()
-
         for doc in docs:
-
-            name = doc.get('name')
-
-            wdes = doc.get('WikiPathways-description')
-
-            if wdes:
-
-                name_des.update({name:'WikiPathways-description'})
-
-            wcat = doc.get('WikiPathways-category')
-
-            if wcat:
-
-                name_cat.update({name:'WikiPathways-category'})
-
-        print len(name_des)
-
-        print len(name_cat)
-
-        with open('./name_des.json','w') as wf:
-            json.dump(name_des,wf,indent=2)
-
-        with open('./name_cat.json','w') as wf:
-            json.dump(name_cat,wf,indent=2)
+            pass
 
     def mapping(self):
 
@@ -193,7 +170,7 @@ class wiki_parser(object):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('wiki_pathway_{}'.format(self.version))
 
@@ -201,23 +178,27 @@ class wiki_parser(object):
 
     def getMt(self):
 
-        browser = webdriver.Chrome()
+        headers = {'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/37.0.2062.120 Chrome/37.0.2062.120 Safari/537.36',}
 
-        browser.get(wiki_pathway_download)
+        web = requests.get(wiki_pathway_download,headers = headers,verify=False)
 
-        down = browser.find_element_by_xpath('//*[@id="bodyContent"]/p[2]/font/b')
+        soup = bs(web.content,'lxml')
 
-        mt = down.text.split(':')[1].split('(')[0].strip()
+        down = soup.find(text = 'Current version: ')
 
-        href = down.find_element_by_tag_name('a')
+        p =down.findParent('p')
 
-        down_url  = href.get_attribute('href') + 'gpml/wikipathways-{}-gpml-Homo_sapiens.zip'.format(mt)
+        a = p.findChild('a')
 
-        browser.close()
+        mt = a.text.split('(')[0].strip()
+
+        href = a.attrs.get('href')
+
+        dowload_url  = href + 'gpml/wikipathways-{}-gpml-Homo_sapiens.zip'.format(mt)
         
         mt = '213' + mt
 
-        return (mt,down_url)
+        return  (dowload_url,mt)
 
     def wget(self,url,mt,rawdir):
 
@@ -404,6 +385,8 @@ class wiki_parser(object):
 
                             entry = allgraphId_nodegraphId.get(GraphId)
 
+                            # print '*****',GraphId,entry
+
                             if entry and isinstance(entry,(unicode,list)):
 
                                # adic[group_num]['entry{}'.format(n)] = entry 
@@ -543,6 +526,12 @@ class wiki_parser(object):
 
                         nodeinfo[node_graphid]['xref'].update({db:_id})
         
+        # with open('./groupId_nodeId.json','w') as wf:
+        #     json.dump(groupId_nodeId,wf,indent=2)
+
+        # with open('./nodeinfo.json','w') as wf:
+        #     json.dump(nodeinfo,wf,indent=2)
+            
         return (nodedic,nodeinfo,groupId_nodeId)
 
     def gpml_group(self,group):
@@ -560,6 +549,9 @@ class wiki_parser(object):
 
                 # a graphId to 2 or more group_groupId??
                 graphId_groupId[group_graphId] = group_groupId
+
+        # with open('./graphId_groupId.json','w') as wf:
+        #     json.dump(graphId_groupId,wf,indent=2)
 
         return graphId_groupId
 
@@ -681,7 +673,7 @@ class wiki_parser(object):
 
                 for node_id in group_nodes:
 
-                    node_info = nodeinfo.get(node)
+                    node_info = nodeinfo.get(node_id)
 
                     if node_info:
 
@@ -707,9 +699,9 @@ class wiki_parser(object):
 
         allgraphId_nodegraphId.update(graphId_label)
 
-        with open('allgraphId_nodegraphId.json','w') as wf:
-
-            json.dump(allgraphId_nodegraphId,wf,indent=2)
+        # with open('allgraphId_nodegraphId.json','w') as wf:
+# 
+        #     json.dump(allgraphId_nodegraphId,wf,indent=2)
 
         # print len(allgraphId_nodegraphId)
 
@@ -727,8 +719,9 @@ if __name__ == '__main__':
 
     main()
 
-    # rawdir = '/home/user/project/dbproject/mygene_v1/wiki_pathway/dataraw/pathway_21320171116_171205101037'
+    # rawdir = '/home/user/project/dbproject/mydb_v1/wiki_pathway/dataraw/pathway_21320171116_171205101037'
 
     # filepaths = [pjoin(rawdir,filename) for filename in listdir(rawdir)]
 
     # extractData(filepaths,'171205101037')
+    # updateData()
