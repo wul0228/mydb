@@ -18,6 +18,8 @@ options:
 -h, --help                :give this help
 
 -i, --init    [modelname] :init a new model and create sub-model
+
+-u,--update  [modelname] :update a model in current directory,if modelname=all,update all
 '''
 common_help = '''
 '''
@@ -54,6 +56,8 @@ version  = 1.0
 model_name = psplit(os.path.abspath(__file__))[1]
 
 (******_model,******_raw,******_store,******_db,******_map) = buildSubDir('******')
+
+log_path = pjoin(******_model,'******.log')
 
 # main code
 def downloadData():

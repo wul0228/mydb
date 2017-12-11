@@ -331,8 +331,17 @@ def dataFromDB(database,colnamehead,querykey,queryvalue=None):
 
                 print '\n','Result: ','\n'
 
+                docnum = 0
+
                 for doc in docs:
+                    docnum += 1
+
                     pprint.pprint(doc,indent=4,width=80,depth=None)
+                    
+                    doc.pop('_id')
+                    
+                    with open('./out_{}.json'.format(docnum),'w') as wf:
+                        json.dump(doc,wf,indent=8)
 
                     print '~'*50
                    
@@ -344,6 +353,31 @@ def dataFromDB(database,colnamehead,querykey,queryvalue=None):
                 print 'No record'
 
             print '-'*80
+
+def bakeupCol(colname,colhead):
+
+    conn = MongoClient('localhost',27017)
+
+    db = conn.get_database('mydb')
+
+    # bakeup new version to _mongodb directory
+    bakeup =  '/usr/local/mongodb/bin/mongodump -d mydb -c {}  -o  ../_mongodb/'.format(colname)
+
+    os.popen(bakeup)
+
+    print '{} bakeup completed'.format(colname)
+
+    # remove old version
+    col_names =[col_name for col_name in db.collection_names() if col_name.startswith(colhead)]
+
+    for name in col_names:
+
+        if name != colname:
+
+            col = db.get_collection(name)
+
+            col.drop()
+            
 
 def value2key(dic):
     '''
@@ -365,8 +399,7 @@ def value2key(dic):
             for v in val :
                 if v not in value_key:
                     value_key[v] = list()
-            value_key[v].append(key)
-
+                value_key[v].append(key)
 
     return value_key
 
@@ -572,10 +605,10 @@ def getOpts(modelhelp,funcs,insert=True):
 
             elif op in ('-a','--all'):
 
-                save = downloadData(redownload=True)
-                store = extractData(save)
+                save,version = downloadData(redownload=True)
+                store,version = extractData(save,version)
 
-                _map = dbMap(store[1])
+                _map = dbMap(version)
                 _map.mapping()
 
             elif op in ('-u','--update'):
@@ -587,7 +620,6 @@ def getOpts(modelhelp,funcs,insert=True):
     except getopt.GetoptError:
 
         sys.exit()
-
       
 class DateEncoder(json.JSONEncoder):  
 
@@ -608,12 +640,6 @@ class DateEncoder(json.JSONEncoder):
 def main():
 
     print neutrCharge('c1ccccc1CC([NH3+])C(=O)[O-]')
-
-    a= 'Line'
-
-    a = '--------->'
-
-    print a.lower()
 
 if __name__ == '__main__' :
 

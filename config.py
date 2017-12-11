@@ -8,7 +8,7 @@
 
 # this model is set to
 #+++++++++++++++++++++++++ packages ++++++++++++++++++++++++++++++++++++++#
-import os , sys, getopt, tsv, json, time,copy,requests ,pprint
+import os , sys, getopt, tsv, json, time,copy,requests ,pprint,xlrd
 from template import *
 from ftplib import FTP
 from time import sleep
@@ -168,8 +168,22 @@ clinVar_varient_ftp_infos = {
 
 clinVar_varient_filename = 'variant_summary.txt.gz'
 
-#~~~~~~~~~~~~~~~~~~~dis~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+#~~~~~~~~~~~~~~~~~~~disgenet~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 disgenet_download_web = 'http://www.disgenet.org/web/DisGeNET/menu/downloads#gdascurated'
 
 disgenet_download_url = 'http://www.disgenet.org/ds/DisGeNET/results/all_gene_disease_pmid_associations.tsv.gz'
+
+#~~~~~~~~~~~~~~~~~~~human protein atlas~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+protein_atlas_download_web = 'https://www.proteinatlas.org/about/download'
+#~~~~~~~~~~~~~~~~~~~miRTarbase ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+
+miRTarbase_homepage = 'http://mirtarbase.mbc.nctu.edu.tw/'
+miRTarbase_download_web = 'http://mirtarbase.mbc.nctu.edu.tw/php/download.php'
+
+
+#~~~~~~~~~~~~~~~~~~~hpo phenotypic ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+hpo_web = 'http://compbio.charite.de/hpoweb/showterm?id=HP:0000118'
