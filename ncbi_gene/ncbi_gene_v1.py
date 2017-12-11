@@ -22,6 +22,8 @@ model_name = psplit(os.path.abspath(__file__))[1]
 
 (ncbi_gene_model,ncbi_gene_raw,ncbi_gene_store,ncbi_gene_db,ncbi_gene_map) = buildSubDir('ncbi_gene')
 
+log_path = pjoin(ncbi_gene_model,'ncbi_gene.log')
+
 # main code
 
 def downloadOne(ncbi_gene_ftp_infos,filename,rawdir):
@@ -91,9 +93,9 @@ def downloadData(redownload = False):
         # download
         multiProcess(func,gene_expression_filenames,size=16)
 
-    # rawdir = '/home/user/project/dbproject/mygene_v1/ncbi/dataraw/gene_171124124057'
+    # rawdir = '/home/user/project/dbproject/mydb_v1/ncbi/dataraw/gene_171124124057'
 
-    if not os.path.exists(pjoin(ncbi_gene_model,'ncbi_gene.log')):
+    if not os.path.exists(log_path):
 
         initLogFile('ncbi_gene',model_name,ncbi_gene_model,rawdir=rawdir)
 
@@ -159,7 +161,7 @@ def extractData(filepaths,version):
 
 def updateData(insert=False):
 
-    ncbi_gene_log = json.load(open('./ncbi_gene.log'))
+    ncbi_gene_log = json.load(open(log_path))
 
     rawdir = pjoin(ncbi_gene_raw,'gene_update_{}'.format(today))
 
@@ -202,11 +204,11 @@ def updateData(insert=False):
             print  '{} \'s new edition is {} '.format(filename,mt)
 
         else:
-            print  '{} is the latest !'.format(filename)
+            print  '{} {} is the latest !'.format(filename,mt)
 
     if new:
 
-        with open(pjoin(ncbi_gene_model,'ncbi_gene.log'),'w') as wf:
+        with open(log_path,'w') as wf:
 
             json.dump(ncbi_gene_log,wf,indent=2)
 
@@ -215,6 +217,8 @@ def updateData(insert=False):
         if insert:
 
             insertUpdatedData(ncbi_gene_raw,latest_file,'gene_',version,extractData)
+
+            bakeupCol('ncbi_gene_{}'.format(version),'ncbi_gene')
 
 def selectData(querykey = 'GeneID',value='1'):
     '''
@@ -225,7 +229,7 @@ def selectData(querykey = 'GeneID',value='1'):
     '''
     conn = MongoClient('127.0.0.1', 27017 )
 
-    db = conn.mygene
+    db = conn.mydb
 
     colnamehead = 'ncbi'
 
@@ -241,7 +245,7 @@ class dbMap(object):
 
         conn = MongoClient('127.0.0.1',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('ncbi_{}'.format(self.version))
 
@@ -330,7 +334,7 @@ class gene_parser(object):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
         # db.authenticate('wul','wul@408')
         col = db.get_collection('ncbi_gene_{}'.format(version))
 
