@@ -20,6 +20,7 @@ model_name = psplit(os.path.abspath(__file__))[1]
 
 (reactom_pathway_model,reactom_pathway_raw,reactom_pathway_store,reactom_pathway_db,reactom_pathway_map) = buildSubDir('reactom_pathway')
 
+log_path = pjoin(reactom_pathway_model,'reactom_pathway.log')
 # main code
 
 def downloadData(redownload = False,rawdir = None):
@@ -64,9 +65,8 @@ def downloadData(redownload = False,rawdir = None):
             process.wget(url,mt,rawdir)
 
     # create log file
-    log_path = pjoin(reactom_pathway_model,'reactom_pathway.log')
 
-    if not os.path.exists(pjoin(reactom_pathway_model,'reactom_pathway.log')):
+    if not os.path.exists(log_path):
 
         with open('./reactom_pathway.log','w') as wf:
             json.dump({'reactom_pathway':[(newest_mt,today,model_name)]},wf,indent=8)
@@ -101,9 +101,11 @@ def extractData(filepaths,version):
 
     print 'extract and insert completed'
 
+    return (filepaths,version)
+
 def updateData():
 
-    reactom_pathway_log = json.load(open('./reactom_pathway.log'))
+    reactom_pathway_log = json.load(open(log_path))
 
     rawdir = pjoin(reactom_pathway_raw,'pathway_update_{}'.format(today))
 
@@ -127,9 +129,11 @@ def updateData():
 
         print  '{} \'s new edition is {} '.format('reactom_pathway',newest_mt)
 
+        bakeupCol('reactom_pathway_{}'.format(version),'reactom_pathway')
+
     else:
 
-        print  '{} is the latest !'.format('reactom_pathway')
+        print  '{} {} is the latest !'.format('reactom_pathway',newest_mt)
 
     if new:
 
@@ -147,7 +151,7 @@ def selectData(querykey = 'stId',value='R-HSA-76071'):
     '''
     conn = MongoClient('127.0.0.1', 27017 )
 
-    db = conn.mygene
+    db = conn.mydb
 
     colnamehead = 'reactom_pathway'
 
@@ -161,7 +165,7 @@ class dbMap(object):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('reactom_pathway_{}'.format(version))
 
@@ -214,7 +218,7 @@ class reactom_parser(object):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('reactom_pathway_{}'.format(version))
 
@@ -222,7 +226,7 @@ class reactom_parser(object):
         
         self.version = version
 
-    def Mt(text,filename):
+    def Mt(self,text,filename):
 
         mt = text.split(filename)[1].strip().rsplit(' ',1)[0]
 
@@ -236,21 +240,21 @@ class reactom_parser(object):
 
     def getMt(self):
 
-            web = requests.get(reactome_download_web1)
+        web = requests.get(reactome_download_web2)
 
-            soup = bs(web.content,'lxml')
+        soup = bs(web.content,'lxml')
 
-            trs = soup.select('body > table > tr ')
+        trs = soup.select('body > table > tr ')
 
-            for tr in trs:
+        for tr in trs:
 
-                text = tr.text
+            text = tr.text
 
-                if text.count('diagram/'):
+            if text.count('diagram/'):
 
-                     mt = Mt(text,'diagram/')
+                 mt = self.Mt(text,'diagram/')
 
-            return mt
+        return mt
 
     def getUrl(self):
 
@@ -288,7 +292,7 @@ class reactom_parser(object):
 
                 elif filename.split('.txt')[0].strip() == 'pathway2summation':
 
-                    mt = Mt(text,'pathway2summation.txt')
+                    mt = self.Mt(text,'pathway2summation.txt')
 
                     key = url + 'pathway2summation.txt'
 
