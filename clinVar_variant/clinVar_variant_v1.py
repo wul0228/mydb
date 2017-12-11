@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # --coding:utf-8--
-# date: xxxxxx
-# author:xxxxxx
-# emai:xxxxxx
+# date: 2017/12/08
+# author:wuling
+# emai:ling.wu@myhealthgene.com
 
-#this model set  to xxxxxx
+#this model set  to download,extract,standard insert and select gene data from clinVar_variant
 
 import sys
 sys.path.append('../')
@@ -19,6 +19,8 @@ version  = 1.0
 model_name = psplit(os.path.abspath(__file__))[1]
 
 (clinVar_variant_model,clinVar_variant_raw,clinVar_variant_store,clinVar_variant_db,clinVar_variant_map) = buildSubDir('clinVar_variant')
+
+log_path = pjoin(clinVar_variant_model,'clinVar_variant.log')
 
 # main code
 def downloadData(redownload = False):
@@ -56,17 +58,17 @@ def downloadData(redownload = False):
         os.popen(gunzip)
 
     # create log file
-    log_path = pjoin(clinVar_variant_model,'clinVar_variant.log')
+    if not os.path.exists(log_path):
 
-    if not os.path.exists(pjoin(clinVar_variant_model,'clinVar_variant.log')):
-
-        with open('./clinVar_variant.log','w') as wf:
+        with open(log_path,'w') as wf:
 
             json.dump({'clinVar_variant':[(mt,today,model_name)]},wf,indent=8)
 
     print  'datadowload completed !'
 
-    return (save_file_path,mt)
+    filepath = save_file_path.split('.gz')[0].strip()
+
+    return (filepath,today)
 
 def extractData(filepath,version):
 
@@ -76,9 +78,11 @@ def extractData(filepath,version):
 
     print 'extract and insert completed'
 
+    return (filepath,version)
+
 def updateData():
 
-    clinVar_variant_log = json.load(open('./clinVar_variant.log'))
+    clinVar_variant_log = json.load(open(log_path))
 
     rawdir = pjoin(clinVar_variant_raw,'pathway_update_{}'.format(today))
 
@@ -98,16 +102,18 @@ def updateData():
 
         clinVar_variant_log['clinVar_variant'].append((mt,today,model_name))
 
-        print  '{} \'s new edition is {} '.format('clinVar_variant',mt)
         # create new log
-        with open('./clinVar_variant.log','w') as wf:
+        with open(log_path,'w') as wf:
 
             json.dump(clinVar_variant_log,wf,indent=2)
 
+        print  '{} \'s new edition is {} '.format('clinVar_variant',mt)
+        
+        bakeupCol('clinVar_variant_{}'.format(version),'clinVar_variant')
+        
     else:
 
-        print  '{} is the latest !'.format('clinVar_variant')
-
+        print  '{} {} is the latest !'.format('clinVar_variant',mt)
 
 def selectData(querykey = 'GeneID',value='1'):
     '''
@@ -118,7 +124,7 @@ def selectData(querykey = 'GeneID',value='1'):
     '''
     conn = MongoClient('127.0.0.1', 27017 )
 
-    db = conn.mygene
+    db = conn.mydb
 
     colnamehead = 'clinvar_variant_'
 
@@ -128,27 +134,27 @@ class dbMap(object):
 
     #class introduction
 
-    def __init__(self):
-
-        conn = MongoClient('localhost',27017)
-
-        db = conn.get_database('mygene')
-
-        col = db.get_collection('clinvar_variant_{}'.format(version))
-
-        self.col = col
+    def __init__(self,version):
 
         self.version = version
 
-    def mapGene2AlleleID(self):
+        conn = MongoClient('localhost',27017)
 
-        docs = self.col.find({})
+        db = conn.get_database('mydb')
+
+        col = db.get_collection('clinvar_variant_{}'.format(self.version))
+
+        self.col = col
+
+        self.docs = col.find({})
+
+    def mapGene2AlleleID(self):
 
         geneid2alleleid = dict()
 
         genesym2alleleid = dict()
 
-        for doc in docs:
+        for doc in self.docs:
 
             gene_id = doc.get('GeneID')
 
@@ -162,23 +168,45 @@ class dbMap(object):
 
             geneid2alleleid[gene_id].append(AlleleID)
 
-            if gene_sym and gene_sym not in genesym2alleleid:
+            if gene_sym:
 
-                genesym2alleleid[gene_sym] = list()
+                for sym in gene_sym:
 
-            genesym2alleleid[gene_sym].append(AlleleID)
+                    if  sym not in genesym2alleleid:
 
+                        genesym2alleleid[sym] = list()
 
-        with open(pjoin(clinVar_varient_map,'geneid2alleleid.json'),'w') as wf:
+                    genesym2alleleid[sym].append(AlleleID)
+
+        with open(pjoin(clinVar_variant_map,'geneid2alleleid_{}.json'.format(self.version)),'w') as wf:
             json.dump(geneid2alleleid,wf,indent=2)
 
-        with open(pjoin(clinVar_varient_map,'genesym2alleleid.json'),'w') as wf:
+        with open(pjoin(clinVar_variant_map,'genesym2alleleid_{}.json'.format(self.version)),'w') as wf:
             json.dump(genesym2alleleid,wf,indent=2)
 
 
     def mapping(self):
 
-        self.mapXX2XX()
+        self.mapGene2AlleleID()
+
+        # n = 0
+
+        # for doc in self.docs:
+
+        #     AlleleID = doc.get('AlleleID')
+
+        #     gene_sym = doc.get('GeneSymbol')
+
+        #     gene_sym = [i.strip() for i in gene_sym.split(';') if i ]
+
+        #     self.col.update(
+        #         {'AlleleID':AlleleID},
+        #         {'$set':{'GeneSymbol':gene_sym}}
+        #         )
+
+        #     n += 1
+
+        #     print n,AlleleID
 
 class clinVar_parser(object):
 
@@ -187,7 +215,7 @@ class clinVar_parser(object):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('clinvar_variant_{}'.format(version))
 
@@ -219,16 +247,18 @@ class clinVar_parser(object):
 
                 PhenotypeList = dic.pop('PhenotypeList')
 
+                GeneSymbol = dic.pop('GeneSymbol')
+
                 PhenotypeList_list = [ i.strip() for i in PhenotypeList.split(',') if i]
                 PhenotypeIDS_list = [ i.strip() for i in PhenotypeIDS.split(',') if i]
+                # GeneSymbol_list = [ i.strip() for i in GeneSymbol.split(',') if i]
+                GeneSymbol_list = [ i.strip() for i in GeneSymbol.split(';') if i]
 
-                if PhenotypeIDS:
-
-                    dic.update({'PhenotypeIDS':PhenotypeIDS_list})
-
-                if PhenotypeList:
-
-                    dic.update({'PhenotypeList':PhenotypeList_list})
+                dic.update({
+                    'PhenotypeIDS':PhenotypeIDS_list,
+                    'PhenotypeList':PhenotypeList_list,
+                    'GeneSymbol':GeneSymbol_list
+                    })
 
                 location_keys =  ['Assembly','ChromosomeAccession','Chromosome','Start','Stop', 'Cytogenetic','ReferenceAllele','AlternateAllele']
                 
@@ -265,9 +295,11 @@ def main():
 if __name__ == '__main__':
     
     main()
-    # downloadData(redownload = True)
+    # filepath,version = downloadData(redownload = True)
 
-    # filepath = '/home/user/project/dbproject/mygene_v1/clinVar_variant/dataraw/variant_summary_21320171204103823_171206113223.txt'
-    # version = '171206113223'
+    # filepath = '/home/user/project/dbproject/mydb_v1/clinVar_variant/dataraw/variant_summary_21320171204103823_171208183634.txt'
+    # version = '171208183634'
     # extractData(filepath,version)
-    # print 'clinVar_variant'.upper()
+
+    # man = dbMap('171208183634')
+    # man.mapping()
