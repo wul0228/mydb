@@ -20,6 +20,9 @@ model_name = psplit(os.path.abspath(__file__))[1]
 
 (go_gene_model,go_gene_raw,go_gene_store,go_gene_db,go_gene_map) = buildSubDir('go_gene')
 
+
+log_path = pjoin(go_gene_model,'go_gene.log')
+
 # main code
 
 def downloadOne(go_gene_ftp_infos,filename,rawdir):
@@ -85,6 +88,7 @@ def downloadData(redownload = False):
 
         # download obo file
         func = lambda x:downloadOne(go_obo_ftp_infos,x,rawdir)
+
         multiProcess(func,go_obo_filenames,size=16)
 
         # wget = 'wget -P {}  {}'.format(rawdir,go_gene_obo_link)
@@ -96,7 +100,7 @@ def downloadData(redownload = False):
 
     os.popen(gunzip)
 
-    if not os.path.exists(pjoin(go_gene_model,'go_gene.log')):
+    if not os.path.exists(log_path):
 
         initLogFile('go_gene',model_name,go_gene_model,rawdir=rawdir)
 
@@ -145,7 +149,7 @@ def extractData(filepaths,version):
 
 def updateData(insert=False):
 
-    go_gene_log = json.load(open(pjoin(go_gene_model,'go_gene.log')))
+    go_gene_log = json.load(open(log_path))
 
     rawdir = pjoin(go_gene_raw,'gene_update_{}'.format(today))
 
@@ -171,9 +175,6 @@ def updateData(insert=False):
 
             new = True
 
-            print 'old',filename,go_gene_log.get(filename)[-1][0]
-            print 'new',filename,mt
-
             createDir(rawdir)
 
             downloadOne(ftp_infos,filename,rawdir)
@@ -183,11 +184,11 @@ def updateData(insert=False):
             print  '{} \'s new edition is {} '.format(filename,mt)
 
         else:
-            print  '{} is the latest !'.format(filename)
+            print  '{} {} is the latest !'.format(filename,mt)
 
     if new:
 
-        with open(pjoin(go_gene_model,'go_gene.log'),'w') as wf:
+        with open(log_path,'w') as wf:
 
             json.dump(go_gene_log,wf,indent=2)
 
@@ -197,6 +198,7 @@ def updateData(insert=False):
 
             insertUpdatedData(go_gene_raw,latest_file,'gene_',version,extractData)
 
+            bakeupCol('go_gene_{}'.format(version),'go_gene')
 
 def selectData(querykey = 'id',queryvalue='GO:0005765'):
     '''
@@ -207,7 +209,7 @@ def selectData(querykey = 'id',queryvalue='GO:0005765'):
     '''
     conn = MongoClient('127.0.0.1', 27017 )
 
-    db = conn.mygene
+    db = conn.mydb
 
     colnamehead = 'go'
 
@@ -317,13 +319,13 @@ class dbMap(object):
 
     #class introduction
 
-    def __init__(self):
+    def __init__(self,version):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
-        col = db.get_collection('go_gpa_obo_171129140122')
+        col = db.get_collection('go_gene_{}'.format(version))
 
         self.col = col
 
@@ -346,7 +348,7 @@ class gene_parser(object):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('go_gene_{}'.format(version))
 
@@ -508,7 +510,7 @@ def main():
         
 if __name__ == '__main__':
     main()
-    # rawdir = '/home/user/project/dbproject/mygene_v1/go_gene/dataraw/gene_171129140122'
+    # rawdir = '/home/user/project/dbproject/mydb_v1/go_gene/dataraw/gene_171129140122'
 
     # filepaths = [pjoin(rawdir,filename) for filename in listdir(rawdir)]
     # extractData(filepaths,'171129140122')
