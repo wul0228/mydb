@@ -20,6 +20,7 @@ model_name = psplit(os.path.abspath(__file__))[1]
 
 (ensembl_gene_model,ensembl_gene_raw,ensembl_gene_store,ensembl_gene_db,ensembl_gene_map) = buildSubDir('ensembl_gene')
 
+log_path = pjoin(ensembl_gene_model,'ensembl_gene.log')
 # main code
 def downloadOne(ensembl_gene_ftp_infos,filename,rawdir):
     '''
@@ -102,8 +103,7 @@ def downloadData(redownload = False):
         multiProcess(func,filenames_regulatorGRch37,size=16)
 
     # create log file
-    rawdir = '/home/user/project/dbproject/mygene_v1/ensembl_gene/dataraw/gene_171127151418'
-    if not os.path.exists(pjoin(ensembl_gene_model,'ensembl_gene.log')):
+    if not os.path.exists(log_path):
 
         initLogFile('ensembl_gene',model_name,ensembl_gene_model,rawdir=rawdir)
 
@@ -166,9 +166,11 @@ def extractData(filepaths,version):
 
         print name,'completed'
 
+    return (filepaths,version)
+
 def updateData(insert=False):
 
-    ensembl_gene_log = json.load(open('./ensembl_gene.log'))
+    ensembl_gene_log = json.load(open(log_path))
 
     rawdir = pjoin(ensembl_gene_raw,'gene_update_{}'.format(today))
 
@@ -203,13 +205,13 @@ def updateData(insert=False):
                     print  '{} \'s new edition is {} '.format(filename,mt)
 
                 else:
-                    print  '{} is the latest !'.format(filename)
+                    print  '{} {} is the latest !'.format(filename,mt)
 
         print '~'*50
 
     if new:
 
-        with open(pjoin(ensembl_gene_model,'ensembl_gene.log'),'w') as wf:
+        with open(log_path,'w') as wf:
 
             json.dump(ensembl_gene_log,wf,indent=2)
 
@@ -218,6 +220,8 @@ def updateData(insert=False):
         if insert:
 
             insertUpdatedData(ensembl_gene_raw,latest_file,'gene_',version,extractData)
+
+            bakeupCol('ensembl_gene_{}'.format(version),'ensembl_gene_')
 
 def selectData(querykey = 'gene_id',value='ENSG00000243485'):
 
@@ -229,7 +233,7 @@ def selectData(querykey = 'gene_id',value='ENSG00000243485'):
     '''
     conn = MongoClient('127.0.0.1', 27017 )
 
-    db = conn.mygene
+    db = conn.mydb
 
     colnamehead = 'ensembl'
 
@@ -245,7 +249,7 @@ class dbMap(object):
 
         conn = MongoClient('127.0.0.1',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('ensembl_{}'.format(self.version))
 
@@ -287,6 +291,7 @@ class dbMap(object):
 
         with open(pjoin(ensembl_gene_map,'geneid2symbol_{}.json'.format(self.version)),'w') as wf:
             json.dump(id_symbol,wf,indent=2)
+            
         with open(pjoin(ensembl_gene_map,'symbol2geneid_{}.json'.format(self.version)),'w') as wf:
             json.dump(symbol_id,wf,indent=2)
 
@@ -305,7 +310,7 @@ class gene_parser(object):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('ensembl_gene_{}'.format(version))
 
