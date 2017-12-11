@@ -21,6 +21,8 @@ model_name = psplit(os.path.abspath(__file__))[1]
 
 (kegg_pathway_model,kegg_pathway_raw,kegg_pathway_store,kegg_pathway_db,kegg_pathway_map) = buildSubDir('kegg_pathway')
 
+log_path = pjoin(kegg_pathway_model,'kegg_pathway.log')
+
 # main code
 def downloadData(redownload = False,rawdir = None):
 
@@ -44,11 +46,9 @@ def downloadData(redownload = False,rawdir = None):
 
             rawdir = pjoin(kegg_pathway_raw,'pathway_{}'.format(today))
 
-        web = requests.get(kegg_pathway_web)
+        process = kegg_parser(today)
 
-        soup = bs(web.content,'lxml')
-
-        mt = soup.select('body')[0].text.split('Last updated: ')[1].strip().replace(' ','&').replace(',','#')
+        mt = process.getMt()
 
         # download pathway file
         options = webdriver.ChromeOptions()
@@ -70,8 +70,6 @@ def downloadData(redownload = False,rawdir = None):
         sleep(5)
 
         driver.close()
-
-    log_path = pjoin(kegg_pathway_model,'kegg_pathway.log')
 
     if not os.path.exists(log_path):
 
@@ -96,9 +94,9 @@ def extractData(filepath,version):
     
     createDir(pathway_store)
 
-    process = pathway_parser(filepath,version)
+    process = kegg_parser(version)
 
-    all_path = process.pathway(pathway_store)
+    all_path = process.pathway(filepath,pathway_store)
 
     print 'all_path',len(all_path)
 
@@ -126,17 +124,13 @@ def extractData(filepath,version):
 
 def updateData(insert=False):
 
-    print '-'*50
-
-    kegg_pathway_log = json.load(open(pjoin(kegg_pathway_model,'kegg_pathway.log')))
+    kegg_pathway_log = json.load(open(log_path))
 
     rawdir = pjoin(kegg_pathway_raw,'pathway_update_{}'.format(today))
 
-    web = requests.get(kegg_pathway_web)
+    process = kegg_parser(today)
 
-    soup = bs(web.content,'lxml')
-
-    mt = soup.select('body')[0].text.split('Last updated: ')[1].strip().replace(' ','&').replace(',','#')
+    mt = process.getMt()
 
     if mt != kegg_pathway_log.get('hsa00001.json')[-1][0]:
 
@@ -152,13 +146,15 @@ def updateData(insert=False):
 
         kegg_pathway_log['hsa00001.json'].append((mt,today,model_name))
 
-        with open(pjoin(kegg_pathway_model,'kegg_pathway.log'),'w') as wf:
+        with open(log_path,'w') as wf:
             json.dump(kegg_pathway_log,wf,indent=2)
 
-        print  '{} \'s new edition is {} '.format('hsa00001.json',mt)
+        print  '{} \'s new edition is {} '.format('kegg_pathway',mt)
 
+        bakeupCol('kegg_pathway_{}'.format(version),'kegg_pathway')
+        
     else:
-        print  '{} is the latest !'.format('hsa00001.json')
+        print  '{} {} is the latest !'.format('kegg_pathway',mt)
 
 def selectData(querykey = 'path_id',value='00010'):
     '''
@@ -169,31 +165,47 @@ def selectData(querykey = 'path_id',value='00010'):
     '''
     conn = MongoClient('127.0.0.1', 27017 )
 
-    db = conn.mygene
+    db = conn.mydb
 
     colnamehead = 'kegg_pathway'
 
     dataFromDB(db,colnamehead,querykey,queryvalue=None)
 
-class pathway_parser(object):
+class kegg_parser(object):
 
-    def __init__(self, filepath,version):
+    def __init__(self,version):
 
         conn = MongoClient('localhost',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
-        col = db.get_collection('kegg_pathway_{}'.format(version))
+        colname = 'kegg_pathway_{}'.format(version)
+
+        col = db.get_collection(colname)
+
+        self.db = db
 
         self.col = col
 
-        self.filepath = filepath
-
         self.version = version
 
-    def pathway(self,pathway_store):
+        self.colname = colname
 
-        jsonfile = json.load(open(self.filepath))
+    def getMt(self):
+
+        headers = {'User_Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/37.0.2062.120 Chrome/37.0.2062.120 Safari/537.36'}
+
+        web = requests.get(kegg_pathway_web,headers=headers,verify=False)
+
+        soup = bs(web.content,'lxml')
+
+        mt = soup.select('body')[0].text.split('Last updated: ')[1].strip().replace(' ','&').replace(',','#')
+
+        return mt
+
+    def pathway(self,filepath,pathway_store):
+
+        jsonfile = json.load(open(filepath))
 
         filname = jsonfile.get('name')
 
@@ -453,7 +465,7 @@ class dbMap(object):
 
         conn = MongoClient('127.0.0.1',27017)
 
-        db = conn.get_database('mygene')
+        db = conn.get_database('mydb')
 
         col = db.get_collection('kegg_pathway_{}'.format(self.version))
 
