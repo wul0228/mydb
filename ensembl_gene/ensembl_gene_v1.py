@@ -168,7 +168,7 @@ def extractData(filepaths,version):
 
     return (filepaths,version)
 
-def updateData(insert=False):
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     ensembl_gene_log = json.load(open(log_path))
 
@@ -221,7 +221,7 @@ def updateData(insert=False):
 
             insertUpdatedData(ensembl_gene_raw,latest_file,'gene_',version,extractData)
 
-            bakeupCol('ensembl_gene_{}'.format(version),'ensembl_gene_')
+            bakeupCol('ensembl_gene_{}'.format(version),'ensembl_gene_',_mongodb)
 
 def selectData(querykey = 'gene_id',value='ENSG00000243485'):
 
@@ -251,19 +251,23 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('ensembl_{}'.format(self.version))
+        colname = 'ensembl_gene_{}'.format(self.version)
+
+        col = db.get_collection(colname)
 
         docs = col.find({})
 
         self.docs  = docs
 
-    def mapGeneID2Symbol(self):
+        self.colname = colname
+
+    def mapgeneid2genesym(self):
         '''
         this function is to create a mapping relation between GeneID with Symbol
         '''
-        id_symbol = dict()
+        geneid2genesym = dict()
 
-        symbol_id = dict()
+        genesym2geneid = dict()
 
         n = 0
 
@@ -273,31 +277,33 @@ class dbMap(object):
 
             symbol = doc.get('gene_name')
 
-            id_symbol[gene_id] = symbol
+            geneid2genesym[gene_id] = symbol
 
-            if symbol not in symbol_id:
+            if symbol not in genesym2geneid:
 
-                symbol_id[symbol] = list()
+                genesym2geneid[symbol] = list()
             
-            symbol_id[symbol].append(gene_id)
+            genesym2geneid[symbol].append(gene_id)
 
             n += 1
 
-            print n,gene_id,symbol
-
-        for key,val in symbol_id.items():
+        for key,val in genesym2geneid.items():
             if len(val) >= 2:
                 print key,val
 
-        with open(pjoin(ensembl_gene_map,'geneid2symbol_{}.json'.format(self.version)),'w') as wf:
-            json.dump(id_symbol,wf,indent=2)
+        map_dir = pjoin(ensembl_gene_map,self.colname)
+
+        createDir(map_dir)
+
+        with open(pjoin(map_dir,'geneid2genesym.json'),'w') as wf:
+            json.dump(geneid2genesym,wf,indent=2)
             
-        with open(pjoin(ensembl_gene_map,'symbol2geneid_{}.json'.format(self.version)),'w') as wf:
-            json.dump(symbol_id,wf,indent=2)
+        with open(pjoin(map_dir,'genesym2geneid.json'),'w') as wf:
+            json.dump(genesym2geneid,wf,indent=2)
 
     def mapping(self):
 
-        self.mapGeneID2Symbol()
+        self.mapgeneid2genesym()
 
 
 class gene_parser(object):
@@ -560,3 +566,6 @@ def main():
         
 if __name__ == '__main__':
     main()
+    # man = dbMap('171127151418')
+    # man.mapping()
+ 

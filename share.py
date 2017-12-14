@@ -340,8 +340,8 @@ def dataFromDB(database,colnamehead,querykey,queryvalue=None):
                     
                     doc.pop('_id')
                     
-                    with open('./out_{}.json'.format(docnum),'w') as wf:
-                        json.dump(doc,wf,indent=8)
+                    # with open('./out_{}.json'.format(docnum),'w') as wf:
+                    #     json.dump(doc,wf,indent=8)
 
                     print '~'*50
                    
@@ -354,14 +354,14 @@ def dataFromDB(database,colnamehead,querykey,queryvalue=None):
 
             print '-'*80
 
-def bakeupCol(colname,colhead):
+def bakeupCol(colname,colhead,_mongodb='../_mongodb/'):
 
     conn = MongoClient('localhost',27017)
 
     db = conn.get_database('mydb')
 
     # bakeup new version to _mongodb directory
-    bakeup =  '/usr/local/mongodb/bin/mongodump -d mydb -c {}  -o  ../_mongodb/'.format(colname)
+    bakeup =  '/usr/local/mongodb/bin/mongodump -d mydb -c {}  -o  {}'.format(colname,_mongodb)
 
     os.popen(bakeup)
 
@@ -457,6 +457,19 @@ def deBlankDict(dic):
 
     return dic
 
+
+def dedupDicVal(dic):
+
+    newdic = dict()
+
+    for key,val in dic.items():
+
+        newdic[key] = dict()
+
+        for k,v in val.items():
+            newdic[key][k] = list(set(v))
+
+    return newdic
 
 def strAndList(content):
     '''

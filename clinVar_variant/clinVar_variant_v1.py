@@ -80,11 +80,9 @@ def extractData(filepath,version):
 
     return (filepath,version)
 
-def updateData():
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     clinVar_variant_log = json.load(open(log_path))
-
-    rawdir = pjoin(clinVar_variant_raw,'pathway_update_{}'.format(today))
 
     ftp = connectFTP(**clinVar_varient_ftp_infos)
 
@@ -93,8 +91,6 @@ def updateData():
     mt =  ftp.sendcmd('MDTM {}'.format(filename)).replace(' ','')
 
     if mt != clinVar_variant_log['clinVar_variant'][-1][0]:
-
-        createDir(rawdir)
 
         filepath,version = downloadData(redownload=True)
 
@@ -109,7 +105,7 @@ def updateData():
 
         print  '{} \'s new edition is {} '.format('clinVar_variant',mt)
         
-        bakeupCol('clinVar_variant_{}'.format(version),'clinVar_variant')
+        bakeupCol('clinvar_variant_{}'.format(version),'clinvar_variant',_mongodb)
         
     else:
 
@@ -142,13 +138,19 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('clinvar_variant_{}'.format(self.version))
+        colname = 'clinvar_variant_{}'.format(self.version)
+
+        col = db.get_collection(colname)
 
         self.col = col
 
         self.docs = col.find({})
 
+        self.colname = colname
+
     def mapGene2AlleleID(self):
+
+        geneid2gensym = dict()
 
         geneid2alleleid = dict()
 
@@ -157,33 +159,52 @@ class dbMap(object):
         for doc in self.docs:
 
             gene_id = doc.get('GeneID')
-
             gene_sym = doc.get('GeneSymbol')
-
             AlleleID = doc.get('AlleleID')
 
-            if gene_id and gene_id not in geneid2alleleid:
+            if gene_id and gene_id != '-1':
 
-                geneid2alleleid[gene_id] = list()
+                if gene_id not in geneid2gensym :
 
-            geneid2alleleid[gene_id].append(AlleleID)
+                    geneid2gensym[gene_id] = list()
 
-            if gene_sym:
+                if gene_id not in geneid2alleleid :
 
-                for sym in gene_sym:
+                    geneid2alleleid[gene_id] = list()
 
-                    if  sym not in genesym2alleleid:
+                geneid2alleleid[gene_id].append(AlleleID)
 
-                        genesym2alleleid[sym] = list()
+                if gene_sym:
 
-                    genesym2alleleid[sym].append(AlleleID)
+                    geneid2gensym[gene_id] += gene_sym
 
-        with open(pjoin(clinVar_variant_map,'geneid2alleleid_{}.json'.format(self.version)),'w') as wf:
-            json.dump(geneid2alleleid,wf,indent=2)
+                    for sym in gene_sym:
 
-        with open(pjoin(clinVar_variant_map,'genesym2alleleid_{}.json'.format(self.version)),'w') as wf:
-            json.dump(genesym2alleleid,wf,indent=2)
+                        if  sym not in genesym2alleleid:
 
+                            genesym2alleleid[sym] = list()
+
+                        genesym2alleleid[sym].append(AlleleID)
+
+        genesym2geneid = value2key(geneid2gensym)
+
+        map_dir = pjoin(clinVar_variant_map,self.colname)
+
+        createDir(map_dir)
+
+        save = {'geneid2gensym':geneid2gensym,'genesym2geneid':genesym2geneid,
+                      'geneid2alleleid':geneid2alleleid, 'genesym2alleleid':genesym2alleleid }
+
+        for name,dic in save.items():
+
+            dedupdic = dict()
+
+            for key,val in dic.items():
+
+                dedupdic[key] = list(set(val))
+
+            with open(pjoin(map_dir,'{}.json'.format(name)),'w') as wf:
+                json.dump(dedupdic,wf,indent=2)
 
     def mapping(self):
 
@@ -300,6 +321,5 @@ if __name__ == '__main__':
     # filepath = '/home/user/project/dbproject/mydb_v1/clinVar_variant/dataraw/variant_summary_21320171204103823_171208183634.txt'
     # version = '171208183634'
     # extractData(filepath,version)
-
-    # man = dbMap('171208183634')
-    # man.mapping()
+    man = dbMap('171208183634')
+    man.mapping()

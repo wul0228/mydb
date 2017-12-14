@@ -65,7 +65,7 @@ def extractData(filepath,version):
 
     return (filepath,version)
     
-def updateData():
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     protein_atlas_log = json.load(open(log_path))
 
@@ -87,7 +87,7 @@ def updateData():
 
             json.dump(protein_atlas_log,wf,indent=2)
 
-        bakeupCol('protein_atlas_{}'.format(version),'protein_atlas')
+        bakeupCol('protein_atlas_{}'.format(version),'protein_atlas',_mongodb)
 
     else:
         print  '{} is the latest !'.format('protein_atlas')
@@ -121,16 +121,53 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('protein_atlas_{}'.format(self.version))
+        colname = 'protein_atlas_{}'.format(self.version)
+
+        col = db.get_collection(colname)
 
         self.col = col
 
-    def mapXX2XX(self):
-        pass
+        self.colname = colname
+
+        self.docs = col.find({})
+
+    def mapgeneidgenesym(self):
+        
+        geneid2genesym = dict()
+
+        for doc in self.docs:
+
+            geneid = doc.get('Ensembl')
+
+            genesym = doc.get('Gene')
+
+            genesynonym = [i.strip() for i in doc.get('Gene&synonym') if i]
+
+            if geneid not in geneid2genesym:
+                geneid2genesym[geneid] = list()
+
+
+            if genesym:
+                geneid2genesym[geneid].append(genesym)
+
+            if genesynonym:
+                geneid2genesym[geneid] += genesynonym
+
+        map_dir = pjoin(protein_atlas_map,self.colname)
+
+        createDir(map_dir)
+
+        genesym2geneid = value2key(geneid2genesym)
+
+        save = {'geneid2genesym':geneid2genesym,'genesym2geneid':genesym2geneid}
+
+        for name,dic in save.items():
+            with open(pjoin(map_dir,'{}'.format(name)),'w') as wf:
+                json.dump(dic,wf,indent=8)
 
     def mapping(self):
 
-        self.mapXX2XX()
+        self.mapgeneidgenesym()
 
 class protein_parser(object):
 
@@ -250,4 +287,6 @@ def main():
         
 if __name__ == '__main__':
 
-    main()
+    # main()
+    man  = dbMap('171208124150')
+    man.mapping()

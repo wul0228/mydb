@@ -11,17 +11,6 @@ sys.setdefaultencoding = ('utf-8')
 from share import *
 from config import *
 from template import *
-from ncbi_gene import ncbi_gene_v1
-from ensembl_gene import ensembl_gene_v1
-from go_gene import  go_gene_v1
-from kegg_pathway import kegg_pathway_v1
-from reactom_pathway import reactom_pathway_v1
-from wiki_pathway import wiki_pathway_v1
-from disgenet_disease import disgenet_disease_v1
-from clinVar_variant import clinVar_variant_v1
-from protein_atlas import protein_atlas_v1
-from miRTarBase import miRTarBase_v1
-from hpo_phenotypic import hpo_phenotypic_v1
 
 version = '1.0'
 
@@ -29,7 +18,12 @@ model_name = psplit(os.path.abspath(__file__))[1]
 
 current_path = psplit(os.path.abspath(__file__))[0]
 
-models =  [name for name in listdir('./') if  not any([name.endswith(x) for x in ['.py','.pyc','.readme']])]
+models =  [name for name in listdir('./') if  not any([name.endswith(x) for x in ['.py','.pyc','.readme','.git']]) and not name.startswith('_')]
+
+for model in models:
+
+    import_model = "from {} import  {}_v1".format(model,model)
+    exec(import_model)
 
 class manager(object):
 
@@ -97,6 +91,7 @@ class manager(object):
         'protein_atlas':protein_atlas_v1.updateData,
         'miRTarBase':miRTarBase_v1.updateData,
         'hpo_phenotypic':hpo_phenotypic_v1.updateData,
+        'hgnc_gene':hgnc_gene_v1.updateData,
         }
 
         return updates if allupdate else updates.get(self.modelname)
@@ -118,7 +113,7 @@ class manager(object):
                     update_fun = self.importModel(allupdate=False)
 
                     print '-'*50
-                    update_fun()
+                    update_fun(_mongodb='./_mongodb/')
 
                 except Exception,e:
                     print e
@@ -132,13 +127,35 @@ class manager(object):
                 try:
                     print '*'*80
                     print n,model,'\n'
-                    fun()
+                    fun(_mongodb='./_mongodb/')
                 except Exception,e:
                     print 'x'*50
                     print e
                     print 'x'*50
                 n += 1
 
+class dbMap(object):
+
+    """docstring for dbMap"""
+    def __init__(self):
+
+        super(dbMap, self).__init__()
+
+        # map_dir = dict()
+
+        # for model in models:
+
+        #     model_map = pjoin(current_path,model,'datamap')
+
+        #     latest_map = sorted([_dir for _dir in listdir(model_map)],key=lambda x: x.rsplit('_',1)[1].strip())[-1]
+
+        #     latest_map_dir = pjoin(model_map,latest_map)
+
+        #     map_dir[model] = latest_map_dir
+
+        # self.mapdirs = map_dir
+ 
+        # print map_dir
 
 class query(object):
 

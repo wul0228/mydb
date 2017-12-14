@@ -103,7 +103,7 @@ def extractData(filepaths,version):
 
     return (filepaths,version)
 
-def updateData():
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     reactom_pathway_log = json.load(open(log_path))
 
@@ -129,7 +129,7 @@ def updateData():
 
         print  '{} \'s new edition is {} '.format('reactom_pathway',newest_mt)
 
-        bakeupCol('reactom_pathway_{}'.format(version),'reactom_pathway')
+        bakeupCol('reactom_pathway_{}'.format(version),'reactom_pathway',_mongodb)
 
     else:
 
@@ -167,21 +167,27 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('reactom_pathway_{}'.format(version))
+        colname = 'reactom_pathway_{}'.format(version)
 
-        self.col = col
+        col = db.get_collection(colname)
 
         docs = col.find({})
+
+        self.col = col
 
         self.docs = docs
 
         self.version = version
 
-    def mapID2Name(self):
+        self.colname = colname
 
-        id_name = dict()
+    def mappathid2pathname(self):
 
-        name_id = dict()
+        pathid2pathname = dict()
+
+        pathname2pathid = dict()
+
+        geneid2pathid = dict()
 
         for doc in self.docs:
 
@@ -189,28 +195,48 @@ class dbMap(object):
 
             path_name = doc.get('name')
 
+            genes  = doc.get('nodes',{}).get('EntityWithAccessionedSequence',{}).keys()
+
+            if genes:
+
+                for geneid in genes:
+
+                    if geneid not in geneid2pathid:
+
+                        geneid2pathid[geneid] = list()
+
+                    geneid2pathid[geneid].append(path_id)
+
             if path_name:
 
-                id_name.update({path_id:path_name})
+                pathid2pathname.update({path_id:path_name})
 
-                if path_name not in name_id:
+                if path_name not in pathname2pathid:
 
-                    name_id[path_name] = list()
+                    pathname2pathid[path_name] = list()
 
-                name_id[path_name].append(path_id)
+                pathname2pathid[path_name].append(path_id)
 
             else:
                 print path_id,'no name'
 
-        with open(pjoin(reactom_pathway_map,'id2name_{}.json'.format(self.version)),'w') as wf:
-            json.dump(id_name,wf,indent=2)
+        pathid2geneid = value2key(geneid2pathid)
 
-        with open(pjoin(reactom_pathway_map,'name2id_{}.json'.format(self.version)),'w') as wf:
-            json.dump(name_id,wf,indent=2)
+        map_dir = pjoin(reactom_pathway_map,self.colname)
+
+        createDir(map_dir)
+
+        save = {'pathid2pathname':pathid2pathname,'pathname2pathid':pathname2pathid,
+                    'geneid2pathid':geneid2pathid,'pathid2geneid':pathid2geneid}
+
+        for name,dic in save.items():
+
+            with open(pjoin(map_dir,'{}.json'.format(name)),'w') as wf:
+                json.dump(dic,wf,indent=2)
 
     def mapping(self):
 
-        self.mapID2Name()
+        self.mappathid2pathname()
 
 class reactom_parser(object):
 
@@ -220,11 +246,14 @@ class reactom_parser(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('reactom_pathway_{}'.format(version))
+        colname = 'reactom_pathway_{}'.format(version)
+
+        col = db.get_collection(colname)
 
         self.col = col
         
         self.version = version
+
 
     def Mt(self,text,filename):
 
@@ -399,3 +428,9 @@ if __name__ == '__main__':
     # filepaths,version = downloadData(redownload = True)
 
     # extractData(filepaths,version)
+    # man = dbMap('171207120739')
+    # man.mapping()
+
+ 
+    
+

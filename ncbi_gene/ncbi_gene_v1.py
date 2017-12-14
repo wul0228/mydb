@@ -159,7 +159,7 @@ def extractData(filepaths,version):
 
         return (filepaths,version)
 
-def updateData(insert=False):
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     ncbi_gene_log = json.load(open(log_path))
 
@@ -218,7 +218,7 @@ def updateData(insert=False):
 
             insertUpdatedData(ncbi_gene_raw,latest_file,'gene_',version,extractData)
 
-            bakeupCol('ncbi_gene_{}'.format(version),'ncbi_gene')
+            bakeupCol('ncbi_gene_{}'.format(version),'ncbi_gene',_mongodb)
 
 def selectData(querykey = 'GeneID',value='1'):
     '''
@@ -247,19 +247,23 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('ncbi_{}'.format(self.version))
+        colname = 'ncbi_gene_{}'.format(self.version)
+
+        col = db.get_collection(colname)
 
         docs = col.find({})
 
         self.docs  = docs
 
+        self.colname = colname
+
     def mapGeneID2Symbol(self):
         '''
         this function is to create a mapping relation between GeneID with Symbol
         '''
-        id_symbol = dict()
+        geneid2genesym = dict()
 
-        symbol_id = dict()
+        genesym2geneid = dict()
 
         n = 0
 
@@ -281,24 +285,37 @@ class dbMap(object):
             else:
                 symbols = [symbol,]
 
-            id_symbol[gene_id] = symbols
+            geneid2genesym[gene_id] = symbols
 
             for s in symbols:
 
-                if s not in symbol_id:
+                if s not in genesym2geneid:
 
-                    symbol_id[s] = list()
+                    genesym2geneid[s] = list()
                 
-                symbol_id[s].append(gene_id)
+                genesym2geneid[s].append(gene_id)
 
             n += 1
 
-            print n,gene_id,symbol
+        map_dir = pjoin(ncbi_gene_map,self.colname)
 
-        with open(pjoin(ncbi_gene_map,'geneid2symbol_{}.json'.format(self.version)),'w') as wf:
-            json.dump(id_symbol,wf,indent=2)
-        with open(pjoin(ncbi_gene_map,'symbol2geneid_{}.json'.format(self.version)),'w') as wf:
-            json.dump(symbol_id,wf,indent=2)
+        createDir(map_dir)
+
+        with open(pjoin(map_dir,'geneid2genesym.json'),'w') as wf:
+            json.dump(geneid2genesym,wf,indent=2)
+        with open(pjoin(map_dir,'genesym2geneid.json'),'w') as wf:
+            json.dump(genesym2geneid,wf,indent=2)
+
+    def dataModel(self):
+
+        model = dict()
+
+        for doc in docs:
+
+            for key,val in doc.items():
+
+                
+
 
     def mapping(self):
 
@@ -616,6 +633,7 @@ def main():
     getOpts(modelhelp,funcs=funcs)
         
 if __name__ == '__main__':
-    main()
-    
+    # main()
+    man = dbMap('171124160521')
+    man.mapping()
 

@@ -125,7 +125,15 @@ go_obo_filenames=[
 
 go_gene_obo_link = 'http://purl.obolibrary.org/obo/go.obo'
 
+#~~~~~~~~~~~~~~~~~~~hgnc  gene~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+hgnc_gene_ftp_infos =  {
+'host' : 'ftp.ebi.ac.uk' ,
+'user':'anonymous',
+'passwd' : '',
+'logdir' : '/pub/databases/genenames/new/tsv/'
+}
 
+hgnc_genename_filename = 'hgnc_complete_set.txt'
 #~~~~~~~~~~~~~~~~~~~kegg pathway~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # kegg_pathway_downloadurl = 'http://www.kegg.jp/kegg-bin/get_htext?hsa00001'
 kegg_pathway_downloadurl = 'http://www.kegg.jp/kegg-bin/download_htext?htext=hsa00001&format=htext&filedir='
@@ -186,4 +194,12 @@ miRTarbase_download_web = 'http://mirtarbase.mbc.nctu.edu.tw/php/download.php'
 
 #~~~~~~~~~~~~~~~~~~~hpo phenotypic ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
-hpo_web = 'http://compbio.charite.de/hpoweb/showterm?id=HP:0000118'
+# hpo_web = 'http://compbio.charite.de/hpoweb/showterm?id=HP:0000118'
+hpo_download_web = 'http://compbio.charite.de/jenkins/job/hpo.annotations.monthly/lastStableBuild/'
+
+hpo_download_urls = [
+'http://purl.obolibrary.org/obo/hp.obo',
+'http://compbio.charite.de/jenkins/job/hpo.annotations.monthly/lastStableBuild/artifact/annotation/OMIM_ALL_FREQUENCIES_diseases_to_genes_to_phenotypes.txt',
+'http://compbio.charite.de/jenkins/job/hpo.annotations.monthly/lastStableBuild/artifact/annotation/ORPHA_ALL_FREQUENCIES_diseases_to_genes_to_phenotypes.txt',
+'http://compbio.charite.de/jenkins/job/hpo.annotations/lastSuccessfulBuild/artifact/misc/phenotype_annotation.tab'
+]

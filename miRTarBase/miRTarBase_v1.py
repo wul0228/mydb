@@ -66,7 +66,7 @@ def extractData(filepath,version):
 
     return (filepath,version)
 
-def updateData():
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     miRTarBase_log = json.load(open(log_path))
 
@@ -88,7 +88,7 @@ def updateData():
 
             json.dump(miRTarBase_log,wf,indent=2)
 
-        bakeupCol('miRTarBase_{}'.format(version),'miRTarBase')
+        bakeupCol('miRTarBase_{}'.format(version),'miRTarBase',_mongodb)
 
     else:
         print  '{} is the latest !'.format('miRTarBase')
@@ -120,9 +120,13 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('miRTarBase_{}'.format(self.version))
+        colname = 'miRTarBase_{}'.format(self.version)
+
+        col = db.get_collection(colname)
 
         self.col = col
+
+        self.colname = colname
 
     def mapgenId2mirID(self):
         
@@ -144,11 +148,14 @@ class dbMap(object):
 
         geneID_mirID = value2key(mirID_geneID)
 
+        map_dir = pjoin(miRTarBase_map,self.colname)
 
-        with open(pjoin(miRTarBase_map,'geneID2mirID_{}.json'.format(version)),'w') as wf:
+        createDir(map_dir)
+
+        with open(pjoin(map_dir,'geneID2mirID.json'),'w') as wf:
             json.dump(geneID_mirID,wf,indent=8)
 
-        with open(pjoin(miRTarBase_map,'mirID_geneID_{}.json'.format(version)),'w') as wf:
+        with open(pjoin(map_dir,'mirID2geneID.json'),'w') as wf:
             json.dump(mirID_geneID,wf,indent=8)
 
     def mapping(self):
@@ -274,3 +281,6 @@ if __name__ == '__main__':
      # filepath = '/home/user/project/dbproject/mydb_v1/miRTarBase/dataraw/miRTarBase_MTI_7*0_171211094532.xlsx'
      # version = '171211094532'
      # extractData(filepath,version)
+
+    # man = dbMap('171211094532')
+    # man.mapping()

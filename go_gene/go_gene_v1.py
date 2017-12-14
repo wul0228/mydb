@@ -147,7 +147,7 @@ def extractData(filepaths,version):
 
     return (filepaths,version)
 
-def updateData(insert=False):
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     go_gene_log = json.load(open(log_path))
 
@@ -198,7 +198,7 @@ def updateData(insert=False):
 
             insertUpdatedData(go_gene_raw,latest_file,'gene_',version,extractData)
 
-            bakeupCol('go_gene_{}'.format(version),'go_gene')
+            bakeupCol('go_gene_{}'.format(version),'go_gene',_mongodb)
 
 def selectData(querykey = 'id',queryvalue='GO:0005765'):
     '''
@@ -325,16 +325,48 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('go_gene_{}'.format(version))
+        colname = 'go_gene_{}'.format(version)
+
+        col = db.get_collection(colname)
 
         self.col = col
 
-        def mapXX2XX():
-            pass
+        self.colname = colname
+
+    def mapGeneID2GOID(self):
+
+        docs = self.col.find({})
+
+        geneid2goid = dict()
+
+        for doc in docs:
+
+            geneid = doc.get('DB_Object_ID')
+
+            goid = doc.get('GO',{}).keys()
+
+            if geneid and geneid not in geneid2goid:
+
+                geneid2goid[geneid] = list()
+
+            if goid:
+                geneid2goid[geneid] += goid
+
+        goid2geneid = value2key(geneid2goid)
+
+        map_dir = pjoin(go_gene_map,self.colname)
+
+        createDir(map_dir)
+
+        with open(pjoin(map_dir,'geneid2goid.json'),'w') as wf:
+            json.dump(geneid2goid,wf,indent=8)
+
+        with open(pjoin(map_dir,'goid2geneid.json'),'w') as wf:
+            json.dump(goid2geneid,wf,indent=8)
 
     def mapping(self):
 
-        self.mapXX2XX()
+        self.mapGeneID2GOID()
 
 class gene_parser(object):
     """docstring for gene_parser"""
@@ -514,3 +546,7 @@ if __name__ == '__main__':
 
     # filepaths = [pjoin(rawdir,filename) for filename in listdir(rawdir)]
     # extractData(filepaths,'171129140122')
+    
+    # man = dbMap('171129140122')
+
+    # man.mapping()

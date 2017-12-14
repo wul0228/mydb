@@ -1,9 +1,14 @@
 {
-        "clinVar_variant": [
-                [
-                        "21320171204103823", 
-                        "171206113223", 
-                        "clinVar_variant_v1.py"
-                ]
-        ]
+  "clinVar_variant": [
+    [
+      "21320171204103823", 
+      "171206113223", 
+      "clinVar_variant_v1.py"
+    ], 
+    [
+      "21320171211211307", 
+      "171212085939", 
+      "clinVar_variant_v1.py"
+    ]
+  ]
 }

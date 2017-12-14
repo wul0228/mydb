@@ -122,7 +122,7 @@ def extractData(filepath,version):
 
     return(pathway_store,version)
 
-def updateData(insert=False):
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     kegg_pathway_log = json.load(open(log_path))
 
@@ -151,7 +151,7 @@ def updateData(insert=False):
 
         print  '{} \'s new edition is {} '.format('kegg_pathway',mt)
 
-        bakeupCol('kegg_pathway_{}'.format(version),'kegg_pathway')
+        bakeupCol('kegg_pathway_{}'.format(version),'kegg_pathway',_mongodb)
         
     else:
         print  '{} {} is the latest !'.format('kegg_pathway',mt)
@@ -467,41 +467,67 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('kegg_pathway_{}'.format(self.version))
+        colname = 'kegg_pathway_{}'.format(self.version)
+
+        col = db.get_collection(colname)
 
         docs = col.find({})
 
         self.docs  = docs
 
-    def mapID2Name(self):
+        self.colname = colname
 
-        id_name = dict()
+    def mappathid2pathname(self):
 
-        name_id = dict()
+        pathid2pathname = dict()
+
+        pathname2pathid = dict()
+
+        geneid2pathid = dict()
 
         for doc in self.docs:
 
             path_id = doc.get('path_id')
 
             path_name = doc.get('path_name')
+            
+            pathid2pathname.update({path_id:path_name})
 
-            id_name.update({path_id:path_name})
+            genes = doc.get( "gene",{}).keys()
 
-            if path_name not in name_id:
+            if genes:
+
+                for geneid in genes:
+
+                    if geneid not in geneid2pathid:
+
+                            geneid2pathid[geneid] = list()
+
+                    geneid2pathid[geneid].append(path_id)
+
+            if path_name not in pathname2pathid:
                 
-                name_id[path_name] = list()
+                pathname2pathid[path_name] = list()
 
-            name_id[path_name].append(path_id)
+            pathname2pathid[path_name].append(path_id)
 
-        with open(pjoin(kegg_pathway_map,'id2name_{}.json'.format(self.version)),'w') as wf:
-            json.dump(id_name,wf,indent=2)
+        pathid2geneid = value2key(geneid2pathid)
 
-        with open(pjoin(kegg_pathway_map,'name2id_{}.json'.format(self.version)),'w') as wf:
-            json.dump(name_id,wf,indent=2)
+        map_dir = pjoin(kegg_pathway_map,self.colname)
+
+        createDir(map_dir)
+
+        save = {'pathid2pathname':pathid2pathname,'pathname2pathid':pathname2pathid,
+                    'geneid2pathid':geneid2pathid,'pathid2geneid':pathid2geneid}
+
+        for name,dic in save.items():
+
+            with open(pjoin(map_dir,'{}.json'.format(name)),'w') as wf:
+                json.dump(dic,wf,indent=2)
 
     def mapping(self):
 
-        self.mapID2Name()
+        self.mappathid2pathname()
 
 def main():
 
@@ -514,3 +540,7 @@ def main():
 if __name__ == '__main__':
 
     main()
+    # man = dbMap('171211085731')
+    # man.mapping()
+
+

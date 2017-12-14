@@ -85,7 +85,7 @@ def extractData(filepaths,version):
 
     return (storedir,version)
 
-def updateData():
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     wiki_pathway_log = json.load(open(log_path))
 
@@ -113,7 +113,7 @@ def updateData():
 
         print  '{} \'s new edition is {} '.format('wiki_pathway',mt)
 
-        bakeupCol('wiki_pathway_{}'.format(version),'wiki_pathway')
+        bakeupCol('wiki_pathway_{}'.format(version),'wiki_pathway',_mongodb)
 
     else:
 
@@ -145,22 +145,80 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('wiki_pathway_{}'.format(version))
+        colname = 'wiki_pathway_{}'.format(version)
+
+        col = db.get_collection(colname)
 
         self.col = col
 
         self.version = version
 
-    def mapXX2XX(self):
+        self.colname = colname
 
-        docs =self.col.find({})
+        self.docs =self.col.find({})
 
-        for doc in docs:
-            pass
+    def mappathid2pathname(self):
+
+        pathid2pathname = dict()
+
+        pathname2pathid = dict()
+
+        geneid2pathid = dict()
+
+        for doc in self.docs:
+
+            path_id = doc.get('path_id')
+
+            path_name = doc.get('path_name')
+
+            genes  = doc.get('GeneProduct')
+
+            if genes:
+                
+                for key,val in genes.items():
+
+                    xref = val.get('xref')
+                    if  xref:
+
+                        for k,v  in xref.items():
+                            geneid = k + ':' + v
+
+                            if geneid not in geneid2pathid:
+                                geneid2pathid[geneid] = list()
+
+                            geneid2pathid[geneid].append(path_id)
+
+            if path_name:
+
+                pathid2pathname.update({path_id:path_name})
+
+                if path_name not in pathname2pathid:
+
+                    pathname2pathid[path_name] = list()
+
+                pathname2pathid[path_name].append(path_id)
+
+            else:
+                print path_id,'no name'
+
+        pathid2geneid = value2key(geneid2pathid)
+
+        map_dir = pjoin(wiki_pathway_map,self.colname)
+
+        createDir(map_dir)
+
+        save = {'pathid2pathname':pathid2pathname,'pathname2pathid':pathname2pathid,
+                    'geneid2pathid':geneid2pathid,'pathid2geneid':pathid2geneid}
+
+        for name,dic in save.items():
+
+            with open(pjoin(map_dir,'{}.json'.format(name)),'w') as wf:
+                json.dump(dic,wf,indent=2)
+
 
     def mapping(self):
 
-        self.mapXX2XX()
+        self.mappathid2pathname()
 
 class wiki_parser(object):
 
@@ -244,6 +302,8 @@ class wiki_parser(object):
 
             print filename
 
+            path_id =  filename.rsplit('_',2)[1].strip()
+
             jsonfile = parse(open(filepath))
 
             # create a dict to store pathway
@@ -255,7 +315,8 @@ class wiki_parser(object):
             # q. get the name and organism
             pathwaydic.update(
                 {
-                'name':pathway.get('@Name'),
+                'path_id':path_id,
+                'path_name':pathway.get('@Name'),
                 'organism':pathway.get('@Organism')
                 })
 
@@ -717,7 +778,7 @@ def main():
         
 if __name__ == '__main__':
 
-    main()
+    # main()
 
     # rawdir = '/home/user/project/dbproject/mydb_v1/wiki_pathway/dataraw/pathway_21320171116_171205101037'
 
@@ -725,3 +786,5 @@ if __name__ == '__main__':
 
     # extractData(filepaths,'171205101037')
     # updateData()
+    man = dbMap('171205101037')
+    man.mapping()

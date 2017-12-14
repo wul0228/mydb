@@ -20,7 +20,18 @@ options:
 -i, --init    [modelname] :init a new model and create sub-model
 
 -u,--update  [modelname] :update a model in current directory,if modelname=all,update all
+
+-d, --database [modelname] : query data record from this model
+
+-f, --field               : look for specified database with this field
+
+-v, --value               : look for all database with filed = value
+
+-o,-- output              : the  directory  path to store query result 
+    eg:
+        python manage.py  -d  ensembl  -f  gene_name  -v  TP53 -o  _result/
 '''
+
 common_help = '''
 '''
 model_help ='''
@@ -29,7 +40,7 @@ Usage: python mygene_v1  [OPTION]...[NAME]...
 Download,extract,standar,insert and update &&&&&& automatically
 
 -h, --help               :give this help
--a, --all                :excute download,extract,standar and insert
+-a, --all                :excute download,extract, and insert data
 -u, --update             :update ###### database
 -f, --field              :look for database with this field
 '''

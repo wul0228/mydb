@@ -65,7 +65,7 @@ def extractData(filepath,version):
     
     return (filepath,version)
 
-def updateData():
+def updateData(insert=False,_mongodb='../_mongodb/'):
 
     disgenet_disease_log = json.load(open(log_path))
 
@@ -88,7 +88,7 @@ def updateData():
 
         print  '{} \'s new edition is {} '.format('disgenet_disease',mt)
 
-        bakeupCol('disgenet_disease_{}'.format(version),'disgenet_disease')
+        bakeupCol('disgenet_disease_{}'.format(version),'disgenet_disease',_mongodb)
 
     else:
         print  '{} {} is the latest !'.format('disgenet_disease',mt)
@@ -108,7 +108,6 @@ def selectData(querykey = 'geneId',value='1'):
 
     dataFromDB(db,colnamehead,querykey,queryvalue=None)
 
-
 class dbMap(object):
 
     #class introduction
@@ -119,7 +118,9 @@ class dbMap(object):
 
         db = conn.get_database('mydb')
 
-        col = db.get_collection('disgenet_disease_{}'.format(version))
+        colname = 'disgenet_disease_{}'.format(version)
+
+        col = db.get_collection(colname)
 
         self.col = col
 
@@ -127,9 +128,13 @@ class dbMap(object):
 
         self.docs = self.col.find({})
 
+        self.colname = colname
+
     def mapGeneID2Dis(self):
 
-        (id2dis,sym2dis,dis2id,dis2sym) = ({},{},{},{})
+        geneid2genesym = dict()
+
+        (geneid2diseaseid,genesym2diseaseid,diseaseid2geneid,diseaseid2genesym) = ({},{},{},{})
 
         for doc in  self.docs:
 
@@ -137,33 +142,47 @@ class dbMap(object):
 
             gene_sym = doc.pop('geneSymbol')
 
+            if gene_id not in geneid2genesym:
+
+                geneid2genesym[gene_id] = list()
+
+            geneid2genesym[gene_id].append(gene_id)
+
             doc.pop('_id')
 
             disease = doc.keys()
 
-            if gene_id not in id2dis:
+            if gene_id not in geneid2diseaseid:
 
-                id2dis[gene_id] = list()
+                geneid2diseaseid[gene_id] = list()
 
-            id2dis[gene_id] +=  disease
+            geneid2diseaseid[gene_id] +=  disease
 
-            if gene_sym not in sym2dis:
+            if gene_sym not in genesym2diseaseid:
 
-                sym2dis[gene_sym] = list()
+                genesym2diseaseid[gene_sym] = list()
 
-            sym2dis[gene_sym] +=  disease
+            genesym2diseaseid[gene_sym] +=  disease
 
-        dis2id = value2key(id2dis)
+        diseaseid2geneid = value2key(geneid2diseaseid)
 
-        dis2sym = value2key(sym2dis)
+        diseaseid2genesym = value2key(genesym2diseaseid)
 
-        save = {'id2dis':id2dis,'sym2dis':sym2dis,'dis2id':dis2id,'dis2sym':dis2sym}
+        genesym2geneid = value2key(geneid2genesym)
+
+        map_dir = pjoin(disgenet_disease_map,self.colname)
+
+        createDir(map_dir)
+
+        save = {'geneid2diseaseid':geneid2diseaseid,'genesym2diseaseid':genesym2diseaseid,
+                    'diseaseid2geneid':diseaseid2geneid,'diseaseid2genesym':diseaseid2genesym,
+                    'geneid2genesym':geneid2genesym,'genesym2geneid':genesym2geneid}
 
         for filename in save.keys():
 
             print filename,len(save[filename])
 
-            with open(pjoin(disgenet_disease_map,'{}_{}.json'.format(filename,self.version)),'w') as wf:
+            with open(pjoin(map_dir,'{}.json'.format(filename)),'w') as wf:
                 json.dump(save[filename],wf,indent=8)
 
     def mapping(self):
@@ -265,5 +284,8 @@ def main():
     getOpts(modelhelp,funcs=funcs)
         
 if __name__ == '__main__':
-    main()
-   
+    # main()
+     man = dbMap('171207172045')
+     man.mapping()
+  
+ 
